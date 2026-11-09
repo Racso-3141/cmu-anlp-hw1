@@ -1,0 +1,19 @@
+torch>=2.3   # torch.amp.GradScaler
+numpy
+sentencepiece
+einops
+pytest
+omegaconf
+tqdm
+rich
+wandb
+matplotlib
+scikit-learn
+transformers   # only for the BERT tokenizer used in Q1.1
+datasets
+requests
+filelock
+importlib_metadata
+regex
+pytest-timeout
+pytest-json-report

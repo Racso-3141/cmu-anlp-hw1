@@ -1,0 +1,22 @@
+# Smoke-test config (~2.7e13 FLOPs: seconds on a GPU, a few minutes on CPU).
+# NOT meant to be good —
+# use it to confirm your training loop runs end to end before spending real
+# compute. Question 3.4 asks you to report its validation loss.
+output_dir: outputs/llama-tiny
+model_config:
+  dim: 64              # residual stream width
+  n_layers: 2          # number of transformer blocks
+  n_heads: 4           # query heads
+  n_kv_heads: 2        # key/value heads (< n_heads means grouped-query attention)
+  max_seq_len: 128     # maximum context the model can attend over
+  multiple_of: 32      # round the SwiGLU hidden dim up to a multiple of this
+  dropout: 0.0
+device: auto
+precision: auto        # auto | bf16 | fp16 | fp32. auto: bf16 on Ampere+, fp16 on older GPUs (T4)
+batch_size: 32
+seq_len: 128           # must be <= model_config.max_seq_len
+num_warmup_steps: 10
+num_training_steps: 500
+grad_accumulation_steps: 1
+min_lr: 1.0e-4
+max_lr: 5.0e-4

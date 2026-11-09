@@ -1,0 +1,33 @@
+# large artifacts — fetched by setup.sh, never committed
+data/stories42M.pt
+data/*.npz
+data/*.npy
+!tests/*.npy
+
+# training output
+outputs/
+addition_models/
+wandb/
+*.pt
+!tests/**/*.pt
+
+# student submission artifacts
+submission/
+submission.zip
+*-output.txt
+generated-sentence-*.txt
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.DS_Store
+
+# latex build artifacts (the PDFs themselves are committed)
+spec/*.aux
+spec/*.log
+spec/*.out
+spec/*.synctex.gz

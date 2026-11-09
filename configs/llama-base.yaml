@@ -1,0 +1,31 @@
+# Starting point for Question 3.5 (the FLOP-budgeted search) and 3.6 (your final
+# model). This config is deliberately NOT tuned — finding a better one within the
+# budget is the assignment.
+#
+# Budgets:
+#   Q3.5  each search config must use <= 1e15 FLOPs   (~4 min on a Colab T4)
+#   Q3.6  your final model must use   <= 1e17 FLOPs   (~6 h on a Colab T4)
+#
+# train.py prints the projected FLOPs before training starts and warns if you are
+# over budget. For Q3.6 you get 100x more, so once you have picked a shape you
+# will mostly be raising num_training_steps. Total FLOPs scale as
+#   flops_per_token * num_training_steps * grad_accumulation_steps * batch_size * seq_len
+# so every knob below moves the budget. Raising dim or n_layers costs you steps.
+output_dir: outputs/llama-base
+model_config:
+  dim: 256
+  n_layers: 6
+  n_heads: 8
+  n_kv_heads: 4
+  max_seq_len: 256
+  multiple_of: 32
+  dropout: 0.0
+device: auto
+precision: auto        # auto | bf16 | fp16 | fp32. auto: bf16 on Ampere+, fp16 on older GPUs (T4)
+batch_size: 64
+seq_len: 256
+num_warmup_steps: 50
+num_training_steps: 700
+grad_accumulation_steps: 1
+min_lr: 1.0e-4
+max_lr: 6.0e-4

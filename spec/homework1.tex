@@ -1,0 +1,548 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{tcolorbox}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{lmodern}
+
+\tcbuselibrary{skins}
+
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+\definecolor{headerblue}{rgb}{0.85,0.87,0.98}
+\definecolor{deliverblue}{rgb}{0.06,0.10,0.45}
+\definecolor{lightbg}{rgb}{0.96,0.97,1.0}
+\definecolor{tabgold}{rgb}{0.99,0.95,0.80}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+% "Problem N: Title" banner
+\newcommand{\problem}[1]{%
+  \vspace{1em}
+  \noindent\colorbox{headerblue}{\parbox{\dimexpr\textwidth-2\fboxsep}{%
+    \vspace{2pt}\textbf{\large #1}\vspace{2pt}}}
+  \vspace{0.6em}
+}
+
+% [Question X.Y] (Kind, N points)
+\newcommand{\question}[3]{%
+  \vspace{0.9em}
+  \noindent\textbf{[Question #1]}\ \ (\textit{\textbf{#2, #3 points}})\quad
+}
+
+% Boxed deliverables callout with a gold tab
+\newtcolorbox{deliverables}[1]{
+  enhanced, colback=lightbg, colframe=deliverblue, boxrule=0.9pt,
+  arc=2pt, left=8pt, right=8pt, top=12pt, bottom=8pt,
+  overlay={\node[fill=tabgold, draw=deliverblue, line width=0.9pt,
+    rounded corners=1pt, inner xsep=8pt, inner ysep=3pt,
+    font=\bfseries\footnotesize, anchor=north]
+    at ([yshift=6pt]frame.north) {DELIVERABLES FOR #1};},
+  before skip=14pt, after skip=10pt
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\footnotesize 11-711 Fall 2026; Homework 1}
+\rhead{\footnotesize\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Long \texttt{} paths cannot hyphenate, and the \question header glues itself to
+% the text that follows, which pushed nine paragraphs past the right margin.
+% emergencystretch lets TeX stretch interword space as a last resort rather than
+% overflowing; \sloppy prefers loose lines to overfull ones.
+\emergencystretch=3em
+\sloppy
+\hbadness=10000
+
+\begin{document}
+
+\begin{center}
+  {\Huge\sffamily\color{mauve} Homework 1}\\[6pt]
+  {\Large\sffamily Build a Language Model}\\[10pt]
+  {\large 11-711 Advanced Natural Language Processing, Fall 2026}\\[4pt]
+  \textbf{Released:} September 1 \quad\textbf{Due:} September 24, 11:59 PM\\[2pt]
+  \textbf{Late submissions close:} October 14, 11:59 PM\\[2pt]
+  \textbf{Individual assignment} \quad 200 points \quad 10\% of your grade
+\end{center}
+
+\vspace{0.8em}
+\hrule
+\vspace{0.8em}
+
+\noindent In this homework you will build a language model end to end. You will train a
+tokenizer, implement the Llama-2 architecture, pretrain a model under a fixed compute budget,
+evaluate what it learned, and adapt it to a downstream task.
+
+\vspace{0.6em}
+\noindent\textcolor{red}{\textbf{There are two Gradescope submissions.} Upload
+\texttt{submission.zip} (built by \texttt{scripts/zip-submission.sh}) to \textbf{Assignment1: Code}
+and \texttt{report.pdf} to \textbf{Assignment1: Report}. Coding questions are graded only by the
+autograder, written questions only from the report; nothing is submitted twice. Use the provided
+LaTeX template, and when uploading the report, mark the pages that answer each question.}
+
+\vspace{0.6em}
+\noindent\textbf{Late policy.} Per the syllabus, each day (or part of a day) a submission is late
+costs 5\% of your grade for this homework; both submissions must be in by October 14, after which
+Gradescope closes. Requests for excused late days go to the course email at least 7 days before the
+deadline.
+
+\vspace{0.6em}
+\noindent\textbf{On the use of AI.} Per the syllabus, you may use AI to help you write \emph{code}.
+You may \textbf{not} use it to write any part of your report. Question 6 asks you to describe how
+you used AI; per the syllabus, using AI without making an honest
+attempt at that question is itself an academic integrity violation.
+
+\vspace{0.6em}
+\noindent\textbf{Roughly half the points are written analysis}, and those questions ask about
+\emph{your} runs: your loss curves, your search table, your generations. Numbers that do not
+match your submitted checkpoint will not receive credit.
+
+%======================================================================
+\problem{Problem 1: Tokenization (35 points)}
+
+\noindent A tokenizer maps a string $s \in \mathcal{A}^*$ over an alphabet $\mathcal{A}$ to a sequence of
+tokens $\mathbf{x} \in \mathcal{V}^*$. Tokenizers are complete in their alphabet: any string over
+$\mathcal{A}$ can be tokenized. Everything downstream, what the model can represent, how much
+context a document consumes, how much it costs to serve, inherits from this choice.
+
+\question{1.1}{Writing}{12}
+We might reasonably expect a tokenizer to satisfy the following:
+
+\begin{itemize}[nosep, leftmargin=2em]
+  \item \textbf{Injective}: for all $s \neq s'$, $\mathrm{tokenize}(s) \neq \mathrm{tokenize}(s')$.
+  \item \textbf{Invertible}: for any string $s$, $s = \mathrm{detokenize}(\mathrm{tokenize}(s))$.
+  \item \textbf{Preserves concatenation}: $\mathrm{tokenize}(s + s') = \mathrm{tokenize}(s) + \mathrm{tokenize}(s')$.
+\end{itemize}
+
+All three are violated by the tokenizers of widely used language models.
+
+\begin{deliverables}{Q1.1}
+\begin{enumerate}[label=\Alph*., leftmargin=1.6em]
+  \item Find counterexamples showing that a popular, publicly available tokenizer fails each
+    property. \textbf{Use \texttt{google-bert/bert-base-cased}.} The autograder has it
+    cached and may have no network access, so another choice risks failing there even if it works
+    locally. Write code in \texttt{tests/test\_tokenizer.py} so that the assertions in
+    \texttt{test\_not\_injective()}, \texttt{test\_not\_invertible()} and
+    \texttt{test\_not\_preserving\_concat()} all pass. In your report, describe in at most two
+    sentences per test what violation you found.
+  \item Explain why it is essentially impossible to build a non-trivial tokenizer that preserves
+    concatenation.\footnote{A trivial tokenizer is one whose vocabulary is the alphabet itself.}
+\end{enumerate}
+\end{deliverables}
+
+\question{1.2}{Coding}{15}
+Byte-pair encoding (BPE) \emph{learns} a tokenizer from a corpus. It starts with the alphabet as
+its vocabulary and repeatedly merges the most frequent adjacent pair of tokens into a new token.
+Each iteration adds one token while keeping every existing one.
+
+\begin{deliverables}{Q1.2}
+\begin{enumerate}[label=\Alph*., leftmargin=1.6em]
+  \item Implement \texttt{ASCIIBPETokenizer.merge()} in \texttt{src/tokenizer/bpe.py}. It must
+    pass \texttt{test\_one\_merge()}, \texttt{test\_two\_merges()} and
+    \texttt{test\_100\_merges()} in \texttt{tests/test\_tokenizer.py}.
+    \emph{You are given helpers} in the same file: \texttt{string\_to\_ascii()},
+    \texttt{compute\_bigram\_statistics()} and \texttt{replace\_bigram()}. Read them first, you
+    should not need to write your own.
+  \item Implement \texttt{encode()} and \texttt{decode()}. These must pass \texttt{test\_encode()}
+    and \texttt{test\_decode()}.
+\end{enumerate}
+Additional hidden tests may be run after the deadline.
+\end{deliverables}
+
+\question{1.3}{Writing}{4}
+We have provided a Unicode BPE tokenizer trained only on English text
+(\texttt{data/english-tokenizer.json}). Run \texttt{python -m src.tokenizer.visualize} to load it
+and inspect the tokens it learned.
+
+\begin{deliverables}{Q1.3}
+Answer in at most two sentences each.
+\begin{enumerate}[label=\Alph*., leftmargin=1.6em]
+  \item What is the longest token you see, and what does that tell you about the training data?
+  \item How can BPE training compromise the privacy of the corpus it was trained on?
+\end{enumerate}
+\end{deliverables}
+
+\question{1.4}{Writing}{4}
+A tokenizer trained on one distribution spends more tokens per unit of meaning on anything else.
+Using the Llama SentencePiece tokenizer (\texttt{src/llama/sp\_tokenizer.py}), measure how many
+tokens it takes to encode comparable amounts of content across different kinds of text.
+\texttt{python -m src.tokenizer.inspect\_tokenizer} runs the core measurements:
+it prints how sample digits tokenize and tokens per character for sample texts in English, source
+code and a non-Latin script; \texttt{-\/-text} covers anything else, including the exact number
+ranges in A.
+
+\begin{deliverables}{Q1.4}
+Answer in at most three sentences each.
+\begin{enumerate}[label=\Alph*., leftmargin=1.6em]
+  \item \textbf{Digits.} Tokenize the numbers 1--20, then 1000--1020. How are multi-digit numbers
+    split? Does the same number of digits always produce the same number of tokens? Explain what
+    this tokenization choice means for a model learning arithmetic, compared to a tokenizer that
+    merges frequent digit sequences into single tokens.
+  \item \textbf{Domains.} Compare tokens-per-character for three texts of similar length: English
+    prose, source code, and a passage in a non-Latin script. Which is most expensive, and why?
+  \item \textbf{Who pays.} API pricing and context windows are both denominated in tokens. State
+    one concrete consequence of your answer to (B) for users writing in the most expensive of the
+    three.
+\end{enumerate}
+\end{deliverables}
+
+%======================================================================
+\problem{Problem 2: Implementing Llama-2 (37 points)}
+
+\noindent You will implement the core of the Llama-2 architecture. All relevant code is in
+\texttt{src/llama/}. \textbf{Do not modify the classes, functions or their
+arguments}, and do not import new dependencies; both will break the autograder. Aim for an
+efficient implementation: call PyTorch operations over whole tensors rather than looping. You may
+not use layers that make the exercise trivial (e.g.\
+\texttt{torch.nn.TransformerDecoder} or \texttt{F.scaled\_dot\_product\_attention}); if you are
+unsure whether something is allowed, ask on Piazza.
+
+\question{2.1}{Coding}{24}
+Implement the following. Each is marked \texttt{\# todo} in the source.
+
+\begin{itemize}[nosep, leftmargin=2em]
+  \item \texttt{RMSNorm.\_norm}: root-mean-square normalization.
+  \item \texttt{Attention.compute\_query\_key\_value\_scores}: scaled dot-product attention with
+    a causal mask.
+  \item \texttt{LlamaLayer.forward}: one transformer block.
+  \item \texttt{Llama.generate}: temperature and top-$p$ (nucleus) sampling.
+  \item \texttt{apply\_rotary\_emb} in \texttt{src/llama/rope.py}: rotary position embeddings.
+    This one is fiddly; \texttt{tests/test\_llama.py} tests it in isolation.
+\end{itemize}
+
+\noindent If you get stuck, \href{https://arxiv.org/pdf/1706.03762}{Attention Is All You Need}
+(Vaswani et al., 2017) and \href{https://nlp.seas.harvard.edu/annotated-transformer/}{The Annotated
+Transformer} are useful references for understanding the mechanics of attention and transformer
+blocks in code.
+
+\begin{deliverables}{Q2.1}
+Upload your code to Gradescope and make sure the tests in \texttt{tests/test\_llama.py} pass.
+
+\vspace{4pt}
+\noindent The test that matters most is \texttt{test\_llama\_forward\_matches\_reference}. It loads
+real pretrained weights (\texttt{stories42M.pt}, an 8-layer, 42M-parameter Llama trained on
+TinyStories) and checks your model reproduces their activations. Shape-correct but subtly wrong
+code fails it. If the reported maximum difference is around $10^{0}$, suspect your normalization or
+attention; around $10^{-4}$ is ordinary floating-point noise.
+\end{deliverables}
+
+\question{2.2}{Writing}{6}
+\href{https://arxiv.org/abs/1608.05859}{Press and Wolf (2017)} propose tying the input embedding
+and the output projection.
+
+\begin{deliverables}{Q2.2}
+\begin{enumerate}[label=\Alph*., leftmargin=1.6em]
+  \item In at most three sentences, explain what weight tying does and why it helps.
+  \item Let $d$ be the hidden size, $v$ the vocabulary size, $b$ the batch size and $s$ the
+    sequence length. Given hidden states $h \in \mathbb{R}^{b \times s \times d}$ and token
+    embeddings $E \in \mathbb{R}^{v \times d}$, write one line of PyTorch that computes the token
+    logits using weight tying.
+\end{enumerate}
+\end{deliverables}
+
+\question{2.3}{Writing}{7}
+Llama-2 uses grouped-query attention: several query heads share one key/value head. During
+generation the model caches keys and values for every position it has already seen.
+
+\begin{deliverables}{Q2.3}
+\begin{enumerate}[label=\Alph*., leftmargin=1.6em]
+  \item Write an expression for the number of bytes the KV cache occupies, in terms of the number
+    of layers $L$, key/value heads $n_{kv}$, head dimension $d_h$, sequence length $s$, batch size
+    $b$, and bytes per element.
+  \item Using the \texttt{configs/llama-base.yaml} values, compute the cache size for batch
+    size $1$ at $s = 256$ and, hypothetically, at $s = 8192$, in \texttt{float16}.
+  \item GQA reduces $n_{kv}$ while leaving the number of query heads unchanged. Given your
+    expression, what does that buy, and what is the cost? Why is this a bigger deal at inference
+    time than during training?
+\end{enumerate}
+\end{deliverables}
+
+
+%======================================================================
+\problem{Problem 3: Pretraining under a compute budget (68 points)}
+
+\noindent You will now pretrain your model on \href{https://arxiv.org/abs/2305.07759}{TinyStories}, a corpus
+of machine-generated children's stories. We provide the corpus pre-tokenized, so you do not need to
+run your Part 1 tokenizer over it.
+Training is budgeted in \textbf{FLOPs rather than wall-clock time}, so the assignment is fair
+across hardware. \texttt{src/train.py} prints the projected cost before training begins and warns
+if you exceed the final $10^{17}$ budget; for Q3.5's per-configuration budget, check the printed
+projection against $10^{15}$ yourself. Total cost is
+\begin{align*}
+  \text{FLOPs} = \ &\texttt{flops\_per\_token} \times \texttt{num\_training\_steps} \\
+  \times\ &\texttt{grad\_accumulation\_steps} \times \texttt{batch\_size} \times \texttt{seq\_len},
+\end{align*}
+where $\texttt{flops\_per\_token} = 6N + 12 L d\, s_{\max}$ for a model with $N$ parameters, $L$
+layers and hidden size $d$. Every hyperparameter moves this: a larger model buys you fewer steps.
+
+\question{3.1}{Writing}{5}
+\texttt{tests/test\_train.py} contains \texttt{test\_train\_sanity\_check}, which trains on a
+sequence of uniformly random tokens drawn from $\{0,\dots,7\}$ and \emph{asserts the loss stays
+above} $\log(8) \approx 2.08$.
+
+\begin{deliverables}{Q3.1}
+\begin{enumerate}[label=\Alph*., leftmargin=1.6em]
+  \item Why is $\log(8)$ the floor for this data? Show the reasoning.
+  \item Describe a specific bug in the attention implementation that would let a model score
+    \emph{below} this floor, and explain the mechanism.
+  \item This test is worth zero points but failing it invalidates Questions 3.4--3.6. Why would
+    those results be meaningless?
+\end{enumerate}
+\end{deliverables}
+
+\question{3.2}{Coding}{28}
+Implement the following in \texttt{src/train.py}:
+\texttt{random\_batch\_sampler}, \texttt{sequential\_batch\_sampler}, \texttt{cosine\_lr\_schedule}
+and \texttt{compute\_language\_modeling\_loss}.
+
+Also implement \texttt{AdamW.step} in \texttt{src/optim/adamw.py}, with decoupled weight decay and
+gradient clipping. Use the efficient bias correction from the end of Section 2 of Kingma \& Ba
+(2014) rather than forming $\hat{m}$ and $\hat{v}$, and fold the learning rate into the weight decay
+update. Your training runs in Part 3 use \emph{your} optimizer, not \texttt{torch.optim.AdamW}.
+
+\begin{deliverables}{Q3.2}
+Upload your code and make sure \texttt{tests/test\_train.py} and
+\texttt{tests/test\_optimizer.py} pass, including \texttt{test\_train\_sanity\_check} (see Q3.1).
+\end{deliverables}
+
+\question{3.3}{Writing}{6}
+Cosine annealing with warmup has two phases. During warmup, $t \in [0, a)$, the learning rate rises
+linearly from $0$ to $\mathrm{lr}_{\max}$. During annealing, $t \in [a, b)$, it decays from
+$\mathrm{lr}_{\max}$ to $\mathrm{lr}_{\min}$ along a half-cosine. For $t \geq b$ it stays at
+$\mathrm{lr}_{\min}$.
+
+\begin{deliverables}{Q3.3}
+\begin{enumerate}[label=\Alph*., leftmargin=1.6em]
+  \item Write the expression for the learning rate during warmup, and during annealing.
+  \item In at most two sentences: why warm up at all, and what does annealing buy over a constant
+    learning rate?
+\end{enumerate}
+\end{deliverables}
+
+\question{3.4}{Writing}{5}
+Train the smoke-test configuration: \texttt{python -m src.train configs/llama-tiny.yaml}. It takes
+about a minute and is not meant to produce a good model.
+
+\begin{deliverables}{Q3.4}
+\begin{enumerate}[label=\Alph*., leftmargin=1.6em]
+  \item Report the final validation loss.
+  \item Roughly how many steps before the training loss stops improving?
+  \item Include the training curve (a screenshot from Weights \& Biases is fine).
+\end{enumerate}
+\end{deliverables}
+
+\question{3.5}{Writing}{14}
+Now search for a good configuration. \textbf{Each configuration you try must use at most $10^{15}$
+FLOPs} --- about four minutes each on a Google Colab T4 instance. Within that budget you may change anything
+that affects cost: \texttt{dim}, \texttt{n\_layers}, \texttt{n\_heads}, \texttt{n\_kv\_heads},
+\texttt{max\_seq\_len}, \texttt{batch\_size}, \texttt{seq\_len},
+\texttt{grad\_accumulation\_steps}, \texttt{num\_training\_steps}, and the learning rates. Evaluate
+using validation perplexity.
+
+\begin{deliverables}{Q3.5}
+Report \textbf{at most three} configurations. For each, state what you changed and the validation
+perplexity you got.
+\begin{enumerate}[label=\Alph*., leftmargin=1.6em]
+  \item Describe your experimental procedure in one paragraph. What did you vary, and why those
+    knobs rather than others?
+  \item Describe your results in one paragraph. Which change mattered most?
+  \item Paste the YAML of your best configuration.
+  \item You held compute fixed and traded model size against training steps. What does your data
+    suggest about that trade-off, and how does it relate to what you know about scaling laws?
+\end{enumerate}
+\end{deliverables}
+
+\question{3.6}{Coding}{10}
+Train your final model using the configuration you chose. You may spend up to $10^{17}$ FLOPs,
+100$\times$ the search budget, so budget roughly six hours on a Google Colab T4 instance.
+
+\textbf{Keep the model architecture you reported in Q3.5}: \texttt{dim}, \texttt{n\_layers},
+\texttt{n\_heads}, \texttt{n\_kv\_heads} and \texttt{max\_seq\_len}. Everything else is yours to
+change in order to use the larger budget: \texttt{num\_training\_steps},
+\texttt{grad\_accumulation\_steps}, \texttt{batch\_size}, \texttt{seq\_len} (up to
+\texttt{max\_seq\_len}), and the learning rates. In practice you will mostly be raising
+\texttt{num\_training\_steps}.
+
+\begin{deliverables}{Q3.6}
+Report your final validation loss and perplexity, and submit \texttt{model.pt} and
+\texttt{config.yaml} as instructed in the README. A hidden test measures perplexity on a held-out
+split you have not seen: \textbf{perplexity $\leq 5.5$ earns full credit, $\leq 8.0$ earns half}.
+
+\textbf{Your own validation perplexity is a good proxy for this}, so you do not need to guess. The
+held-out split is drawn from the same distribution as the validation set you can see, and in our
+experience the two agree closely. If your validation perplexity is comfortably under 5.5, you are
+done and can stop tuning. For scale, the smoke-test configuration \texttt{llama-tiny} reaches
+roughly 128. Gradescope caps uploads at 100MB; \texttt{train.py} warns you if your checkpoint is too
+large.
+\end{deliverables}
+
+%======================================================================
+\problem{Problem 4: Generation and perplexity (35 points)}
+
+\question{4.1}{Coding}{12}
+Implement \texttt{softmax\_with\_temperature} in \texttt{src/generate.py}, and the top-$p$ sampling
+branch of \texttt{Llama.generate} if you have not already (Q2.1).
+
+\begin{deliverables}{Q4.1}
+Upload your code and make sure \texttt{tests/test\_generate.py} passes.
+\end{deliverables}
+
+\question{4.2}{Writing}{11}
+Compare your Part 3 model against \texttt{stories42M}. Both are Llamas trained on TinyStories, so
+the architecture family is held fixed; what differs is model size and how much training went in. Choose
+three prefixes, from \texttt{data/prefixes.jsonl} or your own, and generate at least 32 tokens
+from each model, at several temperatures. \texttt{python -m src.compare\_generations
+-\/-config <your config> -\/-checkpoint <your model.pt>} does this side by side for both models
+(temperatures 0.0, 0.7, 1.5 by default) and writes every generation to a jsonl file.
+
+\begin{deliverables}{Q4.2}
+\begin{enumerate}[label=\Alph*., leftmargin=1.6em]
+  \item Report your prefixes, the temperatures and \texttt{max\_new\_tokens} you used, and paste
+    the generations from each model separately.
+  \item What happens to the generations as temperature approaches zero, and as it grows large?
+    Answer in at most two sentences.
+  \item At a fixed temperature, compare the quality and perplexity of the two models' output.
+    Report what you find and, in at most three sentences, why.
+  \item Your model and \texttt{stories42M} differ in both size and training tokens. What can you
+    \emph{not} conclude from this comparison, and what experiment would separate the two?
+\end{enumerate}
+\end{deliverables}
+
+\question{4.3}{Writing}{12}
+Now measure perplexity directly. \texttt{src/evaluate\_perplexity.py} scores every document in a
+jsonl file and reports perplexity (its docstring has more detail):
+
+\begin{quote}\small\ttfamily
+python -m src.evaluate\_perplexity -\/-checkpoint data/stories42M.pt \\
+\hspace*{2em}-\/-documents data/ppl\_examples.jsonl
+\end{quote}
+
+\noindent \texttt{data/ppl\_examples.jsonl} already contains an in-domain TinyStories passage and a
+Wikipedia passage. Pass \texttt{-\/-strip-word the} to delete a word before scoring, and
+\texttt{-\/-config <your config> -\/-checkpoint <your model.pt>} to score with your own Part 3 model
+instead.
+
+\begin{deliverables}{Q4.3}
+\begin{enumerate}[label=\Alph*., leftmargin=1.6em]
+  \item \textbf{Function words.} Compute your model's perplexity on a held-out TinyStories sample.
+    Then delete every instance of ``the'' and recompute. Report both numbers and explain the change
+    in at most three sentences.
+  \item \textbf{Distribution shift.} Compute your model's perplexity on a few paragraphs of English
+    Wikipedia. Compare it to (A). Explain the gap, and state what that implies about reporting a
+    single perplexity number for a model.
+
+\end{enumerate}
+\end{deliverables}
+
+%======================================================================
+\newpage
+
+\problem{Problem 5: Adapting the model (25 points)}
+
+\noindent Pretraining gives you a model that continues text. Most of what people want from language models
+is something else. Here you adapt the pretrained model to sentiment classification, on SST-5
+(5-way) and CFIMDB (binary).
+
+\question{5.1}{Coding}{10}
+Implement \texttt{LlamaEmbeddingClassifier.forward} in \texttt{src/adapt.py}: pool a single vector
+out of the sequence, apply dropout, pass it through the classifier head, and return
+log-probabilities.
+
+\begin{deliverables}{Q5.1}
+Upload your code and make sure \texttt{tests/test\_adapt.py} passes.
+
+\vspace{4pt}
+\noindent Note the padding-invariance tests. Batches are right-padded to their longest sequence, so
+\texttt{hidden\_states[:, -1]} is a \emph{padding} position for every sequence that is not the
+longest in its batch. Your pooling must find the last real token.
+\end{deliverables}
+
+\question{5.2}{Writing}{8}
+Run the model in two settings against \texttt{stories42M}: zero-shot prompting
+(\texttt{--option prompt}) and finetuning with a classification head
+(\texttt{--option finetune}), on both datasets.
+
+\begin{deliverables}{Q5.2}
+\begin{enumerate}[label=\Alph*., leftmargin=1.6em]
+  \item Report dev accuracy for all four runs (two settings $\times$ two datasets). Report dev
+    only: your copy of \texttt{cfimdb-test.txt} carries placeholder labels (every label is 0),
+    so a locally computed test accuracy is meaningless there, and your runs print \texttt{n/a}
+    for it. Every run writes its prediction files to \texttt{outputs/preds/}; they are included
+    in your code submission, and we score the test split against the real held-out labels
+    ourselves.
+  \item Chance is 0.200 for 5-way SST-5 and 0.500 for binary CFIMDB, but chance is only an
+    honest floor if a constant predictor cannot beat it. Compute the majority-class baseline of
+    each dev set: the accuracy of always predicting its most common label. Then look at what
+    your prompting run actually predicts. The first field of each line of the dev output file
+    is the predicted label, so \texttt{cut -d'|' -f1 <dev-out> | sort | uniq -c} prints the
+    whole distribution. Report both baselines and both distributions, and say in at most four
+    sentences what they imply about whether zero-shot prompting is doing sentiment
+    classification here. Give one reason about the model and one about the single-token
+    scoring setup.
+  \item Finetuning does much better while starting from the same weights. What has changed, given
+    that the pretrained model has seen no sentiment labels at all?
+\end{enumerate}
+\end{deliverables}
+
+\question{5.3}{Writing}{7}
+Now finetune \emph{your own} Part 3 model on SST-5, using the same procedure and passing
+\texttt{-\/-backbone-config} with the config your model was trained with. (SST-5 only, to keep
+the runs short.)
+
+\begin{deliverables}{Q5.3}
+\begin{enumerate}[label=\Alph*., leftmargin=1.6em]
+  \item Report dev accuracy for your model and for \texttt{stories42M}, finetuned identically.
+  \item Is the difference between the two larger than run-to-run variation? Finetune at least twice
+    with different \texttt{--seed} values to find out. Then, in at most three sentences, say what
+    your answer implies about what the extra pretraining compute behind \texttt{stories42M} bought
+    on this task. \textbf{``The difference is within noise'' is a perfectly good answer} if that is
+    what you measure.
+  \item Both models were pretrained only on children's stories, yet both can be finetuned for movie
+    review sentiment. What does that tell you about what pretraining actually provides?
+\end{enumerate}
+\end{deliverables}
+
+%======================================================================
+\problem{Question 6: Use of AI (required, ungraded)}
+
+\begin{deliverables}{Q6}
+Describe how you used AI tools on this assignment: which parts, and how. If you did not use any,
+say so. Per the syllabus this question is required, and failing to make an honest attempt at it is
+itself an academic integrity violation.
+\end{deliverables}
+
+%======================================================================
+\problem{Bonus (up to 10 points)}
+
+\noindent Optional. Pick \textbf{one} and write it up in an appendix to your report: what you did, what you
+measured, and what you concluded. Include plots and training logs.
+
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{The tiniest adding Llama.} Pretrain a model to do 4-digit addition
+    (\texttt{bonus/}). Find the smallest architecture reaching 100\% test accuracy within the
+    \texttt{-\/-capacity} budget of \texttt{bonus/addition\_run.py}; the todos live in
+    \texttt{bonus/addition\_data\_generation.py} and \texttt{bonus/addition\_run.py}. Report at least five ablations, including at least two that fail.
+  \item \textbf{LoRA.} Implement \texttt{LoRALayer.forward} in \texttt{bonus/lora.py} and repeat
+    Q5.2 with it. Report the fraction of parameters you trained (see
+    \texttt{count\_lora\_parameters}) alongside the accuracy, and compare against full finetuning.
+    Note that the update is scaled by $\alpha/r$; explain what you chose and why.
+  \item \textbf{Something else.} Continued pretraining for domain adaptation; an alternative
+    positional encoding; a different attention variant; alternative decoding strategies. Clear it
+    on Piazza first.
+\end{itemize}
+
+%======================================================================
+\vspace{1.2em}
+\hrule
+\vspace{0.8em}
+
+\noindent\textbf{Acknowledgements.} This code is based on llama2.c by Andrej Karpathy (MIT, see
+\texttt{LICENSE}). Parts of the code are also from the \texttt{transformers} library (Apache
+License 2.0), and it contains adaptations from nanoGPT and PyTorch (see \texttt{copyright/}).
+
+\end{document}

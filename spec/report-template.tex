@@ -1,0 +1,150 @@
+% 11-711 Fall 2026; Homework 1 report template.
+%
+% Fill in each section. Written questions are graded ONLY from this document.
+% The autograder never sees it, and we do not go looking in your code for
+% answers. Answer every part; if you skipped a question, say so rather than
+% leaving it blank, so we can tell the difference between skipped and missing.
+%
+% Per the syllabus, every word here must be your own. You may use AI to help
+% write code, but not to write any part of this report.
+
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{listings}
+\usepackage{lmodern}
+
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+\titleformat{\section}[hang]{\color{mauve}\normalfont\sffamily\Large}{\thesection}{1em}{}
+\titleformat{\subsection}[hang]{\color{mauve}\normalfont\sffamily\large}{\thesubsection}{1em}{}
+
+\lstset{basicstyle=\ttfamily\small, breaklines=true, frame=single,
+        columns=flexible, showstringspaces=false}
+
+\title{11-711 Homework 1}
+\author{Your Name \\ \texttt{yourandrewid}}
+\date{Due: September 24, 2026}
+
+% Long \texttt{} paths cannot hyphenate, which pushes lines past the right margin.
+% emergencystretch lets TeX stretch interword space as a last resort rather than
+% overflowing; \sloppy prefers loose lines to overfull ones.
+\emergencystretch=3em
+\sloppy
+\hbadness=10000
+
+\begin{document}
+\maketitle
+
+%======================================================================
+\section*{Problem 1: Tokenization}
+
+\subsection*{Question 1.1 (12 points)}
+\subsubsection*{1.1.A, counterexamples}
+% At most two sentences per property (injective, invertible,
+% concatenation-preserving) describing the violation you found with
+% google-bert/bert-base-cased.
+
+\subsubsection*{1.1.B, why concatenation cannot be preserved}
+
+\subsection*{Question 1.3 (4 points)}
+\subsubsection*{1.3.A, the longest token}
+\subsubsection*{1.3.B, BPE and training-data privacy}
+
+\subsection*{Question 1.4 (4 points)}
+\subsubsection*{1.4.A, digits}
+\subsubsection*{1.4.B, domains}
+% A small table of tokens-per-character is the clearest way to present this.
+\subsubsection*{1.4.C, who pays}
+
+%======================================================================
+\section*{Problem 2: Implementing Llama-2}
+
+\subsection*{Question 2.2 (6 points)}
+\subsubsection*{2.2.A, what weight tying does}
+\subsubsection*{2.2.B, one line of PyTorch}
+\begin{lstlisting}[language=Python]
+# your one line here
+\end{lstlisting}
+
+\subsection*{Question 2.3 (7 points)}
+\subsubsection*{2.3.A, KV cache size}
+\subsubsection*{2.3.B, the two numbers}
+\subsubsection*{2.3.C, what GQA buys, and its cost}
+
+%======================================================================
+\section*{Problem 3: Pretraining}
+
+\subsection*{Question 3.1 (5 points)}
+\subsubsection*{3.1.A, why $\log(8)$}
+\subsubsection*{3.1.B, a bug that would beat the floor}
+\subsubsection*{3.1.C, why 3.4–3.6 would be meaningless}
+
+\subsection*{Question 3.3 (6 points)}
+\subsubsection*{3.3.A, the two expressions}
+\subsubsection*{3.3.B, why warm up, why anneal}
+
+\subsection*{Question 3.4 (5 points)}
+\subsubsection*{3.4.A, final validation loss}
+\subsubsection*{3.4.B, steps to saturation}
+\subsubsection*{3.4.C, training curve}
+% \includegraphics[width=0.7\textwidth]{llama-tiny-curve.png}
+
+\subsection*{Question 3.5 (14 points)}
+% At most THREE configurations. A table is the clearest format:
+%
+%   Config | what changed | FLOPs | val perplexity
+%
+\subsubsection*{3.5.A, experimental procedure}
+\subsubsection*{3.5.B, results}
+\subsubsection*{3.5.C, your best configuration}
+\begin{lstlisting}
+# paste your YAML here
+\end{lstlisting}
+\subsubsection*{3.5.D, size versus steps at fixed compute}
+
+\subsection*{Question 3.6 (reported here, graded on code)}
+% Final validation loss and perplexity.
+
+%======================================================================
+\section*{Problem 4: Generation and perplexity}
+
+\subsection*{Question 4.2 (11 points)}
+\subsubsection*{4.2.A, prefixes, settings, and generations}
+\subsubsection*{4.2.B, the effect of temperature}
+\subsubsection*{4.2.C, your model versus stories42M}
+\subsubsection*{4.2.D, what you cannot conclude}
+
+\subsection*{Question 4.3 (12 points)}
+\subsubsection*{4.3.A, removing ``the''}
+\subsubsection*{4.3.B, distribution shift}
+
+%======================================================================
+\section*{Problem 5: Adapting the model}
+
+\subsection*{Question 5.2 (8 points)}
+\subsubsection*{5.2.A, dev accuracy, four runs}
+% Report dev only. cfimdb-test.txt ships with placeholder labels.
+\subsubsection*{5.2.B, majority baselines, prediction distributions, diagnosis}
+\subsubsection*{5.2.C, what finetuning changed}
+
+\subsection*{Question 5.3 (7 points)}
+\subsubsection*{5.3.A, your model versus stories42M}
+\subsubsection*{5.3.B, difference versus run-to-run variation}
+\subsubsection*{5.3.C, what pretraining actually provides}
+
+%======================================================================
+\section*{Question 6: Use of AI (required, ungraded)}
+% Which parts of this assignment did you use AI for, and how? If you used none,
+% say so. This question is required by the syllabus: using AI without making an
+% honest attempt at answering it is itself an academic integrity violation.
+
+%======================================================================
+\section*{Bonus (optional, up to 10 points)}
+% Which track, what you did, what you measured, what you concluded.
+% Include plots and training logs.
+
+\end{document}
