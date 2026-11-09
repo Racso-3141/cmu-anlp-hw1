@@ -116,7 +116,17 @@ class ASCIIBPETokenizer:
         """
 
         # todo: repeatedly merge the most frequent adjacent pair
-        raise NotImplementedError
+        counter = compute_bigram_statistics(token_ids)
+        bigram = min(counter, key=lambda pair: (-counter[pair], pair))
+        token1, token2 = self.vocab[bigram[0]], self.vocab[bigram[1]]
+        merged_token = token1 + token2
+        
+        next_bigram_id = len(self.vocab)
+        self.vocab.append(merged_token)
+        self.merge_rules[bigram] = next_bigram_id
+        new_token_ids = replace_bigram(token_ids, bigram, next_bigram_id)
+
+        return new_token_ids
 
     def encode(self, text: str) -> list[int]:
         """Convert text to tokens.
@@ -144,7 +154,18 @@ class ASCIIBPETokenizer:
         """
 
         # todo: apply the learned merge rules to a string
-        raise NotImplementedError
+        token_ids = string_to_ascii(text)
+        while True:
+            counter = compute_bigram_statistics(token_ids)
+            to_merge = min(
+                ((p, i) for p, i in self.merge_rules.items() if p in counter),
+                key=lambda kv: kv[1],
+                default=None,
+            )
+            if to_merge is None:
+                return token_ids
+            token_ids = replace_bigram(token_ids, *to_merge)
+        return token_ids
 
     def decode(self, token_ids: list[int]) -> str:
         """Convert tokens back to text.
@@ -161,7 +182,7 @@ class ASCIIBPETokenizer:
             # stitch the pieces back together into one string, and return it
         """
         # todo: map token ids back to text
-        raise NotImplementedError
+        return "".join(self.vocab[i] for i in token_ids)
 
     @classmethod
     def from_config(cls, config_file: str):

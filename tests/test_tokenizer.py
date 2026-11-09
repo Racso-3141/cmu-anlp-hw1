@@ -13,19 +13,35 @@ from src.pytest_utils.decorators import max_score
 def test_not_injective():
     """Q1.1.A: two DIFFERENT strings that encode to the SAME token ids."""
     # todo: find two distinct strings whose encodings are identical
-    raise NotImplementedError
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    text1 = "hello world"
+    text2 = "hello  world"
+    ids1 = tokenizer.encode(text1, add_special_tokens=False)
+    ids2 = tokenizer.encode(text2, add_special_tokens=False)
+    assert ids1 == ids2
 
 
 def test_not_invertible():
     """Q1.1.A: a string that does NOT survive encode-then-decode."""
     # todo: find a string that does not round-trip
-    raise NotImplementedError
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    text = "hello         world"
+    ids = tokenizer.encode(text, add_special_tokens=False)
+    decoded_text = tokenizer.decode(ids)
+    assert text != decoded_text
 
 
 def test_not_preserving_concat():
     """Q1.1.A: two strings where tokenize(a+b) != tokenize(a) + tokenize(b)."""
     # todo: find a pair whose concatenation merges across the boundary
-    raise NotImplementedError
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    text1 = "app"
+    text2 = "le"
+    ids1 = tokenizer.encode(text1, add_special_tokens=False)
+    ids2 = tokenizer.encode(text2, add_special_tokens=False)
+    ids_combined = tokenizer.encode(text1 + text2, add_special_tokens=False)
+    assert ids_combined != (ids1 + ids2)
 
 @max_score(3)
 def test_encode():
