@@ -29,4 +29,52 @@ class AdamW(Optimizer):
 
     def step(self, closure: Callable = None):
         # todo: AdamW update with efficient bias correction and decoupled weight decay
-        raise NotImplementedError
+        for group in self.param_groups:
+            lr = group["lr"]
+            beta1, beta2 = group["betas"]
+            eps = group["eps"]
+            weight_decay = group["weight_decay"]
+            correct_bias = group["correct_bias"]
+            max_grad_norm = group["max_grad_norm"]
+
+            if max_grad_norm is not None:
+                torch.nn.utils.clip_grad_norm_(group["params"], max_grad_norm)
+
+            for p in group["params"]:
+                if p.grad is None:
+                    continue
+
+                grad = p.grad.data
+
+                state = self.state[p]
+                if len(state) == 0:
+                    state["step"] = 0
+                    state["exp_avg"] = torch.zeros_like(p.data)      # m
+                    state["exp_avg_sq"] = torch.zeros_like(p.data)   # v
+
+                m = state["exp_avg"]
+                v = state["exp_avg_sq"]
+
+                state["step"] += 1
+                t = state["step"]
+
+                # step 3
+                m = beta1 * m + (1 - beta1) * grad
+                state["exp_avg"] = m
+
+                # step 4
+                v = beta2 * v + (1 - beta2) * grad * grad
+                state["exp_avg_sq"] = v
+
+                # step 5
+                if correct_bias:
+                    alpha_t = lr * math.sqrt(1 - beta2 ** t) / (1 - beta1 ** t)
+                else:
+                    alpha_t = lr
+
+                # step 6
+                p.data = p.data - alpha_t * m / (v.sqrt() + eps)
+
+                # step 7
+                if weight_decay != 0:
+                    p.data -= lr * weight_decay * p.data

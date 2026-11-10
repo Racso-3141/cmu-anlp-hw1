@@ -63,7 +63,10 @@ def random_batch_sampler(
     """
 
     # todo: yield (B x S) batches of contiguous spans sampled uniformly at random
-    raise NotImplementedError
+    while True:
+        offsets = torch.randint(0, len(tokens) - seq_len + 1, (batch_size,))
+        idx = offsets.reshape(-1, 1) + torch.arange(seq_len)
+        yield tokens[idx].to(device=device)
 
 
 def sequential_batch_sampler(
@@ -100,7 +103,12 @@ def sequential_batch_sampler(
     """
 
     # todo: yield (B x S) batches covering the tokens in order
-    raise NotImplementedError
+    num_tokens_batch = batch_size * seq_len
+    num_total_tokens = len(tokens)
+    for start in range(0, num_total_tokens, num_tokens_batch):
+        if start + num_tokens_batch > num_total_tokens:
+            return
+        yield tokens[start:start+num_tokens_batch].reshape(batch_size, seq_len).to(device)
 
 
 def cosine_lr_schedule(
@@ -119,7 +127,14 @@ def cosine_lr_schedule(
             lr: learning rate at step t
         """
         # todo: linear warmup, then half-cosine decay to min_lr (see Q3.3)
-        raise NotImplementedError
+        if t <= num_warmup_steps:
+            return max_lr * t / num_warmup_steps
+        elif t <= num_training_steps:
+            progress = (t - num_warmup_steps) / (num_training_steps - num_warmup_steps)
+            return min_lr + 0.5 * (max_lr - min_lr) * (1 + math.cos(math.pi * progress))
+        else:
+            return min_lr
+
 
     return get_lr
 
@@ -161,8 +176,11 @@ def compute_language_modeling_loss(
     """
 
     # todo: cross-entropy of next-token prediction (mind the shift)
-    raise NotImplementedError
+    shift_logits = logits[:, :-1, :]
+    shift_logits = shift_logits.reshape(-1, shift_logits.size(-1))
+    shift_labels = input_ids[:, 1:].reshape(-1)
 
+    return F.cross_entropy(shift_logits, shift_labels)
 
 def train(
     model: Llama,
