@@ -47,7 +47,7 @@ class RMSNorm(torch.nn.Module):
             torch.Tensor: The normalized tensor.
         """
         # todo: x * rsqrt(mean(x^2) + eps)
-        raise NotImplementedError
+        return x / torch.sqrt(torch.mean(torch.pow(x, 2), dim=-1, keepdim=True) + self.eps)
 
     def forward(self, x):
         """
@@ -135,7 +135,16 @@ class Attention(nn.Module):
             # combination of the value vectors, and return that
         '''
         # todo: scaled dot-product attention with a causal mask
-        raise NotImplementedError
+        key_t = key.swapaxes(-1, -2)
+        s = (query @ key_t) / math.sqrt(self.head_dim) # b, h, t, t
+        if self.causal:
+            t = query.size(-2)
+            mask = self.causal_mask[:t, :t]
+            s = s.masked_fill(mask == 0, float("-inf"))
+        p = F.softmax(s, dim=-1)
+        p = self.attn_dropout(p)
+        o = p@value
+        return o
 
 
     def forward(
@@ -240,7 +249,11 @@ class LlamaLayer(nn.Module):
            output of the feed-forward network
         '''
         # todo: pre-norm attention and FFN sublayers, each with a residual connection
-        raise NotImplementedError
+        attn_in = self.attention_norm(x)
+        h = x + self.attention(attn_in)
+        ffn_in = self.ffn_norm(h)
+        out = h + self.feed_forward(ffn_in)
+        return out
 
 class Llama(LlamaPreTrainedModel):
     def __init__(self, config: LlamaConfig):
@@ -340,7 +353,14 @@ class Llama(LlamaPreTrainedModel):
                 7) Sample from this filtered probability distribution.
                 '''
                 # todo: temperature softmax, sort, keep the smallest prefix reaching top_p, renormalise, sample
-                raise NotImplementedError
+                prob = F.softmax(logits / temperature, dim=-1)
+                sorted_probs, sorted_idx = torch.sort(prob, dim=-1, descending=True)
+                cdf = torch.cumsum(sorted_probs, dim=-1) 
+                keep = (cdf - sorted_probs) < top_p
+                sorted_probs = sorted_probs * keep
+                sorted_probs /= sorted_probs.sum(dim=-1, keepdim=True)
+                pos = torch.multinomial(sorted_probs, num_samples=1)
+                idx_next = torch.gather(sorted_idx, -1, pos)
             
             # append sampled index to the running sequence and continue
             idx = torch.cat((idx, idx_next), dim=1)

@@ -49,4 +49,20 @@ def apply_rotary_emb(
     """
 
     # todo: rotate each (even, odd) pair by its position-dependent angle
-    raise NotImplementedError
+    q_real, q_imag = query.float().reshape(*query.shape[:-1], -1, 2).unbind(-1)   # (B, T, H, d/2)
+    k_real, k_imag = key.float().reshape(*key.shape[:-1], -1, 2).unbind(-1)       # (B, T, Hkv, d/2)
+    freqs = 1.0 / (theta ** (torch.arange(0, head_dim, 2, device=query.device).float() / head_dim))   # (d/2,)
+    seqlen = query.shape[1]
+    t = torch.arange(seqlen, device=query.device).float()   # m = 0 … T−1, (T,)
+    angles = torch.outer(t, freqs)                           # angles[m, i] = m·θᵢ, (T, d/2)
+    cos = reshape_for_broadcast(angles.cos(), q_real)   # (T, d/2) → (1, T, 1, d/2)
+    sin = reshape_for_broadcast(angles.sin(), q_real)
+    q_out_real = q_real * cos - q_imag * sin
+    q_out_imag = q_real * sin + q_imag * cos
+    k_out_real = k_real * cos - k_imag * sin
+    k_out_imag = k_real * sin + k_imag * cos
+    query_out = torch.stack([q_out_real, q_out_imag], dim=-1).flatten(-2)   # (B, T, H, d)
+    key_out   = torch.stack([k_out_real, k_out_imag], dim=-1).flatten(-2)
+
+    return query_out.type_as(query), key_out.type_as(key)
+
