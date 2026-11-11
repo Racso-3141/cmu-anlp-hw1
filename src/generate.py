@@ -45,7 +45,10 @@ def softmax_with_temperature(
         a 2d torch tensor of token probabilities (B x V)
     """
     # todo: divide the logits by the temperature, then softmax
-    raise NotImplementedError
+    if temperature == 0:
+        return torch.nn.functional.one_hot(logits.argmax(dim=-1), 
+                                           num_classes=logits.shape[-1]).to(logits.dtype)
+    return torch.softmax(logits / temperature, dim=-1)
 
 
 @torch.inference_mode()

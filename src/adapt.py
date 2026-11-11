@@ -104,7 +104,15 @@ class LlamaEmbeddingClassifier(torch.nn.Module):
 		3) Take the log-softmax of the logits and return log-probabilities over all classes.
 		'''
 		# todo: pool the last non-padding hidden state, then dropout + classifier head + log-softmax
-		raise NotImplementedError
+		_, hidden_states = self.llama(input_ids)
+		mask = input_ids != self.pad_id
+		lenghts = mask.sum(dim = 1)
+		last_real = lenghts - 1
+		h_last = hidden_states[torch.arange(input_ids.size(0), device=input_ids.device), last_real]
+		if self.training:
+			h_last = self.dropout(h_last)
+		logits = self.classifier_head(h_last)
+		return F.log_softmax(logits, dim=-1)
 
 # ============================================================================
 # Part 5 driver
